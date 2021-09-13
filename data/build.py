@@ -8,7 +8,7 @@
 import os
 import torch
 import numpy as np
-import torch.distributed as dist
+import torch.distributed as dist                                                                                    # this package is for distributed computing
 from torchvision import datasets, transforms
 from timm.data.constants import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
 from timm.data import Mixup
@@ -16,7 +16,7 @@ from timm.data import create_transform
 from timm.data.transforms import _pil_interp
 
 from .cached_image_folder import CachedImageFolder
-from .samplers import SubsetRandomSampler
+from .samplers import SubsetRandomSampler                                                                           # data loader that returns random ordered data from given indices
 
 
 def build_loader(config):
@@ -27,20 +27,20 @@ def build_loader(config):
     dataset_val, _ = build_dataset(is_train=False, config=config)
     print(f"local rank {config.LOCAL_RANK} / global rank {dist.get_rank()} successfully build val dataset")
 
-    num_tasks = dist.get_world_size()
-    global_rank = dist.get_rank()
-    if config.DATA.ZIP_MODE and config.DATA.CACHE_MODE == 'part':
+    num_tasks = dist.get_world_size()                                                                               # WORLD_SIZE : variable for #processes
+    global_rank = dist.get_rank()                                                                                   # RANK : variables for priority of each processes
+    if config.DATA.ZIP_MODE and config.DATA.CACHE_MODE == 'part':                                                   # zip_mode use compresed dataset file
         indices = np.arange(dist.get_rank(), len(dataset_train), dist.get_world_size())
-        sampler_train = SubsetRandomSampler(indices)
+        sampler_train = SubsetRandomSampler(indices)                                                                # training set
     else:
         sampler_train = torch.utils.data.DistributedSampler(
-            dataset_train, num_replicas=num_tasks, rank=global_rank, shuffle=True
+            dataset_train, num_replicas=num_tasks, rank=global_rank, shuffle=True                                   # training set
         )
 
     indices = np.arange(dist.get_rank(), len(dataset_val), dist.get_world_size())
-    sampler_val = SubsetRandomSampler(indices)
+    sampler_val = SubsetRandomSampler(indices)                                                                      # validation set
 
-    data_loader_train = torch.utils.data.DataLoader(
+    data_loader_train = torch.utils.data.DataLoader(                                                                # data loader for training set
         dataset_train, sampler=sampler_train,
         batch_size=config.DATA.BATCH_SIZE,
         num_workers=config.DATA.NUM_WORKERS,
@@ -48,7 +48,7 @@ def build_loader(config):
         drop_last=True,
     )
 
-    data_loader_val = torch.utils.data.DataLoader(
+    data_loader_val = torch.utils.data.DataLoader(                                                                  # data loader for validation set
         dataset_val, sampler=sampler_val,
         batch_size=config.DATA.BATCH_SIZE,
         shuffle=False,
@@ -57,10 +57,10 @@ def build_loader(config):
         drop_last=False
     )
 
-    # setup mixup / cutmix
+    # setup mixup / cutmix                                                                                          # CutMix: Regularization Strategy to Train Strong Classifiers with Localizable Features (https://arxiv.org/abs/1905.04899)
     mixup_fn = None
     mixup_active = config.AUG.MIXUP > 0 or config.AUG.CUTMIX > 0. or config.AUG.CUTMIX_MINMAX is not None
-    if mixup_active:
+    if mixup_active:                                                                                                # <?>
         mixup_fn = Mixup(
             mixup_alpha=config.AUG.MIXUP, cutmix_alpha=config.AUG.CUTMIX, cutmix_minmax=config.AUG.CUTMIX_MINMAX,
             prob=config.AUG.MIXUP_PROB, switch_prob=config.AUG.MIXUP_SWITCH_PROB, mode=config.AUG.MIXUP_MODE,
@@ -88,7 +88,7 @@ def build_dataset(is_train, config):
     return dataset, nb_classes
 
 
-def build_transform(is_train, config):
+def build_transform(is_train, config):                                                                                  # transform Images for better learning
     resize_im = config.DATA.IMG_SIZE > 32
     if is_train:
         # this should always dispatch to transforms_imagenet_train

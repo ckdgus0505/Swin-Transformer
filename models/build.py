@@ -11,7 +11,7 @@ from .swin_mlp import SwinMLP
 
 def build_model(config):
     model_type = config.MODEL.TYPE
-    if model_type == 'swin':
+    if model_type == 'swin':                                                    # model for Swin + transformer 
         model = SwinTransformer(img_size=config.DATA.IMG_SIZE,
                                 patch_size=config.MODEL.SWIN.PATCH_SIZE,
                                 in_chans=config.MODEL.SWIN.IN_CHANS,
@@ -28,7 +28,7 @@ def build_model(config):
                                 ape=config.MODEL.SWIN.APE,
                                 patch_norm=config.MODEL.SWIN.PATCH_NORM,
                                 use_checkpoint=config.TRAIN.USE_CHECKPOINT)
-    elif model_type == 'swin_mlp':
+    elif model_type == 'swin_mlp':                                              # model for Swin + MLP-Mixer
         model = SwinMLP(img_size=config.DATA.IMG_SIZE,
                         patch_size=config.MODEL.SWIN_MLP.PATCH_SIZE,
                         in_chans=config.MODEL.SWIN_MLP.IN_CHANS,
