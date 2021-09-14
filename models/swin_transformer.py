@@ -10,12 +10,17 @@ import torch.nn as nn
 import torch.utils.checkpoint as checkpoint
 from timm.models.layers import DropPath, to_2tuple, trunc_normal_
 
-
+# --------------------------------------------------------
+# Name : Mlp
+#
+# This Mlp class is responsible for the last layer of the  Swin Transformer Block
+# It is consisted of Linear layer, GELU activation layer and Dropout layer.
+# --------------------------------------------------------
 class Mlp(nn.Module):                                                                                           # this class is for MLP module in figure 3(b)
     def __init__(self, in_features, hidden_features=None, out_features=None, act_layer=nn.GELU, drop=0.):
         super().__init__()
-        out_features = out_features or in_features
-        hidden_features = hidden_features or in_features
+        out_features = out_features or in_features              # Output layer's feature size
+        hidden_features = hidden_features or in_features        # Hidden layer's feature size
         self.fc1 = nn.Linear(in_features, hidden_features)
         self.act = act_layer()
         self.fc2 = nn.Linear(hidden_features, out_features)
@@ -29,7 +34,12 @@ class Mlp(nn.Module):                                                           
         x = self.drop(x)
         return x
 
-
+# --------------------------------------------------------
+# Name : window_partition
+#
+# "Efficient Batch Computation" technique is used to efficiently process Multi-head Self-Attention.
+# By grouping the windows, Multi-head Self-Attention on windows can be processed in parallel. 
+# --------------------------------------------------------
 def window_partition(x, window_size):                           # this function is for partitioning feature map with windows
     """
     Args:
@@ -44,8 +54,14 @@ def window_partition(x, window_size):                           # this function 
     windows = x.permute(0, 1, 3, 2, 4, 5).contiguous().view(-1, window_size, window_size, C)
     return windows
 
-
+# --------------------------------------------------------
+# Name : window_reverse
+#
+# After executing W-MSA or SW-MSA, divided windows are merged to
+# bring back the data shape to the orignal.
+# --------------------------------------------------------
 def window_reverse(windows, window_size, H, W):             # this function is for undoing partitioning 
+
     """
     Args:
         windows: (num_windows*B, window_size, window_size, C)
@@ -61,7 +77,12 @@ def window_reverse(windows, window_size, H, W):             # this function is f
     x = x.permute(0, 1, 3, 2, 4, 5).contiguous().view(B, H, W, -1)
     return x
 
-
+# --------------------------------------------------------
+# Name : WindowAttention
+#
+# This class compute Multi-head Self-Attention of W-MSA or SW-MSA.
+# It receive and process window batch which is divided by "def window_partition".
+# --------------------------------------------------------
 class WindowAttention(nn.Module):                           # this class is for W-MSA, SW-MSA block (in figure 3(b))
     r""" Window based multi-head self attention (W-MSA) module with relative position bias.
     It supports both of shifted and non-shifted window.
@@ -120,20 +141,27 @@ class WindowAttention(nn.Module):                           # this class is for 
         qkv = self.qkv(x).reshape(B_, N, 3, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4)
         q, k, v = qkv[0], qkv[1], qkv[2]  # make torchscript happy (cannot use tensor as tuple)
 
+        # Scaling Q matrix
         q = q * self.scale
+        # Matrxi Multiplication of Q and K
         attn = (q @ k.transpose(-2, -1))
 
+        # Add "Relative Position Bias" to QK Matrix
         relative_position_bias = self.relative_position_bias_table[self.relative_position_index.view(-1)].view(
             self.window_size[0] * self.window_size[1], self.window_size[0] * self.window_size[1], -1)  # Wh*Ww,Wh*Ww,nH
         relative_position_bias = relative_position_bias.permute(2, 0, 1).contiguous()  # nH, Wh*Ww, Wh*Ww
         attn = attn + relative_position_bias.unsqueeze(0)
 
-        if mask is not None:                                                                            # for SW-MSA  <?!>
+        if mask is not None:
+            # If current Multi-head Self-Attention is SW-MSA, then...
+            # apply "Attention Masking" before coputing "Attention Distribution".
             nW = mask.shape[0]
             attn = attn.view(B_ // nW, nW, self.num_heads, N, N) + mask.unsqueeze(1).unsqueeze(0)
             attn = attn.view(-1, self.num_heads, N, N)
             attn = self.softmax(attn)
-        else:                                                                                           # for W-MSA
+        else:
+            # If current Multi-head Self-Attention is W-MSA, then...
+            # just compute "Attention Distribution" without "Attention Masking".
             attn = self.softmax(attn)
 
         attn = self.attn_drop(attn)
@@ -159,7 +187,13 @@ class WindowAttention(nn.Module):                           # this class is for 
         flops += N * self.dim * self.dim
         return flops
 
-
+# --------------------------------------------------------
+# Name : SwinTransformerBlock
+#
+# This class defines single Swin Transformer Block including W-MSA or SW-MSA.
+# The order of "Cyclic Shift" and "Window Paritioning" is changed.
+# To write code easily, "Cyclic Shift" is applied first.
+# --------------------------------------------------------
 class SwinTransformerBlock(nn.Module):                      # this class is implementation of figure 3 (b)
     r""" Swin Transformer Block.                            # LN1 -> ( W-MSA , SW-MSA ) -> LN2 -> MLP
                                                             # if shift_size = 0, W-MSA, elif shift_size > 0 SW-MSA 
@@ -206,7 +240,7 @@ class SwinTransformerBlock(nn.Module):                      # this class is impl
         self.mlp = Mlp(in_features=dim, hidden_features=mlp_hidden_dim, act_layer=act_layer, drop=drop) # MLP modlue
 
         if self.shift_size > 0:                                                                         # <?!>
-            # calculate attention mask for SW-MSA
+            # If shift_size is bigger than zero, then "Attention Mask" for SW-MSA.
             H, W = self.input_resolution
             img_mask = torch.zeros((1, H, W, 1))  # 1 H W 1
             h_slices = (slice(0, -self.window_size),
@@ -240,16 +274,17 @@ class SwinTransformerBlock(nn.Module):                      # this class is impl
         x = x.view(B, H, W, C)
 
         # cyclic shift
-        if self.shift_size > 0:
+
+        if self.shift_size > 0:                                                                         # when SW-MSA
             shifted_x = torch.roll(x, shifts=(-self.shift_size, -self.shift_size), dims=(1, 2))         # like figure 4, shift tensors
-        else:
+        else:                                                                                           # when W-MSA
             shifted_x = x
 
         # partition windows
         x_windows = window_partition(shifted_x, self.window_size)  # nW*B, window_size, window_size, C
         x_windows = x_windows.view(-1, self.window_size * self.window_size, C)  # nW*B, window_size*window_size, C
 
-        # W-MSA/SW-MSA
+        # W-MSA/SW-MSA (if mask is None, W-MSA ;  else, SW-MSA)
         attn_windows = self.attn(x_windows, mask=self.attn_mask)  # nW*B, window_size*window_size, C    # attention operation
 
         # merge windows
@@ -287,7 +322,11 @@ class SwinTransformerBlock(nn.Module):                      # this class is impl
         flops += self.dim * H * W
         return flops
 
-
+# --------------------------------------------------------
+# Name : PatchMerging
+#
+# By merging (2 x 2) Patches, it create a new vector with 2*C dimension.
+# --------------------------------------------------------
 class PatchMerging(nn.Module):
     r""" Patch Merging Layer.
 
@@ -336,7 +375,14 @@ class PatchMerging(nn.Module):
         flops += (H // 2) * (W // 2) * 4 * self.dim * 2 * self.dim
         return flops
 
-
+# --------------------------------------------------------
+# Name : BasicLayer
+#
+# BasicLayer defines combination of Transformer Block and Patch Merging.
+# Unlike the original architecture on the paper, BasicLayer use Patch Merging after Swin Transformer Block. 
+# Swin Transformer Block (x2) means (W-MSA, SW-MSA).
+# Swin Transformer Block (x6) means (W-MSA, SW-MSA, W-MSA, SW-MSA, W-MSA, SW-MSA).
+# --------------------------------------------------------
 class BasicLayer(nn.Module):                                                # stage in figure 3 (a)
     """ A basic Swin Transformer layer for one stage.                       # in paper, stage 2, 3, 4's patch merging is before the Swin transformer
                                                                             # but in code, l+1th patch merging module is implemented after the lth Swin Transformer block 
@@ -371,7 +417,7 @@ class BasicLayer(nn.Module):                                                # st
         self.blocks = nn.ModuleList([
             SwinTransformerBlock(dim=dim, input_resolution=input_resolution,
                                  num_heads=num_heads, window_size=window_size,
-                                 shift_size=0 if (i % 2 == 0) else window_size // 2,
+                                 shift_size=0 if (i % 2 == 0) else window_size // 2, # W-MSA for odd step(depth), SW-MSA for even step
                                  mlp_ratio=mlp_ratio,
                                  qkv_bias=qkv_bias, qk_scale=qk_scale,
                                  drop=drop, attn_drop=attn_drop,
@@ -406,7 +452,11 @@ class BasicLayer(nn.Module):                                                # st
             flops += self.downsample.flops()
         return flops
 
-
+# --------------------------------------------------------
+# Name : PatchEmbed
+#
+# This class encodes patches of an input image in the form of vector by using Conv2d layer.
+# --------------------------------------------------------
 class PatchEmbed(nn.Module):                                                                        # Patch partition, and Linear Embedding in Figure 3 (a)
     r""" Image to Patch Embedding                                                                   # image pixels -> patch
                                                                                                     # partition , embedding with covn2d 
@@ -454,7 +504,11 @@ class PatchEmbed(nn.Module):                                                    
             flops += Ho * Wo * self.embed_dim
         return flops
 
-
+# --------------------------------------------------------
+# Name : SwinTransformer
+#
+# This class defines the full architecture of Swin Transformer.
+# --------------------------------------------------------
 class SwinTransformer(nn.Module):
     r""" Swin Transformer
         A PyTorch impl of : `Swin Transformer: Hierarchical Vision Transformer using Shifted Windows`  -

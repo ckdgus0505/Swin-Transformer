@@ -1,6 +1,17 @@
 # Swin Transformer
 
-Colab 코드 설명 링크 : https://colab.research.google.com/drive/1tPqmb_wSRnxjJgVSYNlZuSpezykPjJkD?usp=sharing
+## Team members
+* jongmin Woo - Paper review
+* Bongwon Jang - Code review
+* Changhyeon Jeong - Write Colab expriment
+---
+Colab Code Description Link : https://colab.research.google.com/drive/1tPqmb_wSRnxjJgVSYNlZuSpezykPjJkD?usp=sharing
+
+ImageClassification Example : https://colab.research.google.com/drive/1xkIJ17FCDPH31lBFFjh7xm745hS-qxbp?usp=sharing
+
+Object Detection Example : https://colab.research.google.com/drive/1JIv8aHpD8eaPqDiPN-Y5CUUhdpQx6vQ5?usp=sharing
+
+---
 
 [![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/end-to-end-semi-supervised-object-detection/object-detection-on-coco)](https://paperswithcode.com/sota/object-detection-on-coco?p=end-to-end-semi-supervised-object-detection)
 [![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/end-to-end-semi-supervised-object-detection/instance-segmentation-on-coco)](https://paperswithcode.com/sota/instance-segmentation-on-coco?p=end-to-end-semi-supervised-object-detection)
