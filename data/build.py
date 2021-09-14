@@ -57,10 +57,10 @@ def build_loader(config):
         drop_last=False
     )
 
-    # setup mixup / cutmix                                                                                          # CutMix: Regularization Strategy to Train Strong Classifiers with Localizable Features (https://arxiv.org/abs/1905.04899)
-    mixup_fn = None
+    # setup mixup / cutmix                                                                                          # Mixup (https://arxiv.org/abs/1710.09412), CutMix (https://arxiv.org/abs/1905.04899) 
+    mixup_fn = None                                                                                                 # for data augmentation
     mixup_active = config.AUG.MIXUP > 0 or config.AUG.CUTMIX > 0. or config.AUG.CUTMIX_MINMAX is not None
-    if mixup_active:                                                                                                # <?>
+    if mixup_active:
         mixup_fn = Mixup(
             mixup_alpha=config.AUG.MIXUP, cutmix_alpha=config.AUG.CUTMIX, cutmix_minmax=config.AUG.CUTMIX_MINMAX,
             prob=config.AUG.MIXUP_PROB, switch_prob=config.AUG.MIXUP_SWITCH_PROB, mode=config.AUG.MIXUP_MODE,

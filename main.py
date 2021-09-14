@@ -28,7 +28,7 @@ from utils import load_checkpoint, save_checkpoint, get_grad_norm, auto_resume_h
 
 try:
     # noinspection PyUnresolvedReferences
-    from apex import amp
+    from apex import amp                                                                                        # amp is for mixed precision training
 except ImportError:
     amp = None
 
@@ -81,19 +81,19 @@ def main(config):
     model.cuda()
     logger.info(str(model))
 
-    optimizer = build_optimizer(config, model)
-    if config.AMP_OPT_LEVEL != "O0":
+    optimizer = build_optimizer(config, model)                                                                              # optimizer : SGD || adamw (default)
+    if config.AMP_OPT_LEVEL != "O0":                                                                                        # Mixed precision opt level, if O0, no amp is used ('O0', 'O1', 'O2')
         model, optimizer = amp.initialize(model, optimizer, opt_level=config.AMP_OPT_LEVEL)
-    model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[config.LOCAL_RANK], broadcast_buffers=False)
+    model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[config.LOCAL_RANK], broadcast_buffers=False)       # for parallel computing
     model_without_ddp = model.module
 
-    n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)                                            # number of parameters of model
     logger.info(f"number of params: {n_parameters}")
     if hasattr(model_without_ddp, 'flops'):
         flops = model_without_ddp.flops()
         logger.info(f"number of GFLOPs: {flops / 1e9}")
 
-    lr_scheduler = build_scheduler(config, optimizer, len(data_loader_train))
+    lr_scheduler = build_scheduler(config, optimizer, len(data_loader_train))                                               # schedule : Cosine (default) || Linear || Step
 
     if config.AUG.MIXUP > 0.:
         # smoothing is handled with mixup label transform
@@ -130,7 +130,7 @@ def main(config):
 
     logger.info("Start training")
     start_time = time.time()
-    for epoch in range(config.TRAIN.START_EPOCH, config.TRAIN.EPOCHS):
+    for epoch in range(config.TRAIN.START_EPOCH, config.TRAIN.EPOCHS):                                          # repeat 300 epochs
         data_loader_train.sampler.set_epoch(epoch)
 
         train_one_epoch(config, model, criterion, data_loader_train, optimizer, epoch, mixup_fn, lr_scheduler)
@@ -149,26 +149,26 @@ def main(config):
 
 def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mixup_fn, lr_scheduler):
     model.train()
-    optimizer.zero_grad()
+    optimizer.zero_grad()                                                                                                   # set gradient to 0
 
-    num_steps = len(data_loader)
+    num_steps = len(data_loader)                                                                                            # number of step in 1 epoch, (number of datasets)
     batch_time = AverageMeter()
     loss_meter = AverageMeter()
     norm_meter = AverageMeter()
 
-    start = time.time()
-    end = time.time()
-    for idx, (samples, targets) in enumerate(data_loader):
-        samples = samples.cuda(non_blocking=True)
+    start = time.time()                                                                                                     # check start time
+    end = time.time()                                                                                                       # check end time
+    for idx, (samples, targets) in enumerate(data_loader):                                                                  # run for loop; train for 1 epoch, samples : data, targets : classes
+        samples = samples.cuda(non_blocking=True)                                                                           # for parallel training
         targets = targets.cuda(non_blocking=True)
 
         if mixup_fn is not None:
-            samples, targets = mixup_fn(samples, targets)
+            samples, targets = mixup_fn(samples, targets)                                                                   # for data augmentation
 
         outputs = model(samples)
 
-        if config.TRAIN.ACCUMULATION_STEPS > 1:
-            loss = criterion(outputs, targets)
+        if config.TRAIN.ACCUMULATION_STEPS > 1:                                                                             # Gradient accumulation steps, could be overwritten by command line argument
+            loss = criterion(outputs, targets)                                                                              # Cross-Entropy Loss; if use mixup, SoftTargetCrossEntropy, elif use label smoothing, LabelSmoothingCrossEntropy
             loss = loss / config.TRAIN.ACCUMULATION_STEPS
             if config.AMP_OPT_LEVEL != "O0":
                 with amp.scale_loss(loss, optimizer) as scaled_loss:
@@ -188,32 +188,32 @@ def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mix
                 optimizer.zero_grad()
                 lr_scheduler.step_update(epoch * num_steps + idx)
         else:
-            loss = criterion(outputs, targets)
-            optimizer.zero_grad()
-            if config.AMP_OPT_LEVEL != "O0":
+            loss = criterion(outputs, targets)                                                                              # Cross-Entropy Loss; if use mixup, SoftTargetCrossEntropy, elif use label smoothing, LabelSmoothingCrossEntropy
+            optimizer.zero_grad()                                                                                           # adamw optimizer grad to zero
+            if config.AMP_OPT_LEVEL != "O0":                                                                                # use apex.amp for mixed precision training
                 with amp.scale_loss(loss, optimizer) as scaled_loss:
                     scaled_loss.backward()
-                if config.TRAIN.CLIP_GRAD:
+                if config.TRAIN.CLIP_GRAD:                                                                                  # when using gradient clipping (default : 5.0)
                     grad_norm = torch.nn.utils.clip_grad_norm_(amp.master_params(optimizer), config.TRAIN.CLIP_GRAD)
                 else:
                     grad_norm = get_grad_norm(amp.master_params(optimizer))
-            else:
+            else:                                                                                                           # not using apex.amp
                 loss.backward()
                 if config.TRAIN.CLIP_GRAD:
                     grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), config.TRAIN.CLIP_GRAD)
                 else:
                     grad_norm = get_grad_norm(model.parameters())
-            optimizer.step()
-            lr_scheduler.step_update(epoch * num_steps + idx)
+            optimizer.step()                                                                                                # update parameters
+            lr_scheduler.step_update(epoch * num_steps + idx)                                                               # update scheduler
 
-        torch.cuda.synchronize()
+        torch.cuda.synchronize()                                                                                            # synchronize cuda for accurate result
 
         loss_meter.update(loss.item(), targets.size(0))
         norm_meter.update(grad_norm)
         batch_time.update(time.time() - end)
         end = time.time()
 
-        if idx % config.PRINT_FREQ == 0:
+        if idx % config.PRINT_FREQ == 0:                                                                                    # for print out log ; default PRINT_FREQ : 10 (print every 10 iterations)
             lr = optimizer.param_groups[0]['lr']
             memory_used = torch.cuda.max_memory_allocated() / (1024.0 * 1024.0)
             etas = batch_time.avg * (num_steps - idx)
@@ -229,7 +229,7 @@ def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mix
 
 
 @torch.no_grad()
-def validate(config, data_loader, model):
+def validate(config, data_loader, model):                                                                                  # same as train_one_epoch , but not backward path
     criterion = torch.nn.CrossEntropyLoss()
     model.eval()
 

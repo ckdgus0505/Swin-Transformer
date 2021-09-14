@@ -10,16 +10,16 @@ from .swin_mlp import SwinMLP
 
 
 def build_model(config):
-    model_type = config.MODEL.TYPE
+    model_type = config.MODEL.TYPE                                              # default model type : swin
     if model_type == 'swin':                                                    # model for Swin + transformer 
-        model = SwinTransformer(img_size=config.DATA.IMG_SIZE,
-                                patch_size=config.MODEL.SWIN.PATCH_SIZE,
-                                in_chans=config.MODEL.SWIN.IN_CHANS,
-                                num_classes=config.MODEL.NUM_CLASSES,
+        model = SwinTransformer(img_size=config.DATA.IMG_SIZE,                  # default : 224
+                                patch_size=config.MODEL.SWIN.PATCH_SIZE,        # default : 4
+                                in_chans=config.MODEL.SWIN.IN_CHANS,            # initial channel, default 3
+                                num_classes=config.MODEL.NUM_CLASSES,           # default : 1000
                                 embed_dim=config.MODEL.SWIN.EMBED_DIM,
                                 depths=config.MODEL.SWIN.DEPTHS,
                                 num_heads=config.MODEL.SWIN.NUM_HEADS,
-                                window_size=config.MODEL.SWIN.WINDOW_SIZE,
+                                window_size=config.MODEL.SWIN.WINDOW_SIZE,      # paper's parameter "M", default : 7
                                 mlp_ratio=config.MODEL.SWIN.MLP_RATIO,
                                 qkv_bias=config.MODEL.SWIN.QKV_BIAS,
                                 qk_scale=config.MODEL.SWIN.QK_SCALE,

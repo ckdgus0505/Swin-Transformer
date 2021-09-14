@@ -11,7 +11,7 @@ import torch.utils.checkpoint as checkpoint
 from timm.models.layers import DropPath, to_2tuple, trunc_normal_
 
 
-class Mlp(nn.Module):
+class Mlp(nn.Module):                                                                                           # this class is for MLP module in figure 3(b)
     def __init__(self, in_features, hidden_features=None, out_features=None, act_layer=nn.GELU, drop=0.):
         super().__init__()
         out_features = out_features or in_features
@@ -30,7 +30,7 @@ class Mlp(nn.Module):
         return x
 
 
-def window_partition(x, window_size):
+def window_partition(x, window_size):                           # this function is for partitioning feature map with windows
     """
     Args:
         x: (B, H, W, C)
@@ -45,7 +45,7 @@ def window_partition(x, window_size):
     return windows
 
 
-def window_reverse(windows, window_size, H, W):
+def window_reverse(windows, window_size, H, W):             # this function is for undoing partitioning 
     """
     Args:
         windows: (num_windows*B, window_size, window_size, C)
@@ -62,7 +62,7 @@ def window_reverse(windows, window_size, H, W):
     return x
 
 
-class WindowAttention(nn.Module):
+class WindowAttention(nn.Module):                           # this class is for W-MSA, SW-MSA block (in figure 3(b))
     r""" Window based multi-head self attention (W-MSA) module with relative position bias.
     It supports both of shifted and non-shifted window.
 
@@ -128,17 +128,17 @@ class WindowAttention(nn.Module):
         relative_position_bias = relative_position_bias.permute(2, 0, 1).contiguous()  # nH, Wh*Ww, Wh*Ww
         attn = attn + relative_position_bias.unsqueeze(0)
 
-        if mask is not None:
+        if mask is not None:                                                                            # for SW-MSA  <?!>
             nW = mask.shape[0]
             attn = attn.view(B_ // nW, nW, self.num_heads, N, N) + mask.unsqueeze(1).unsqueeze(0)
             attn = attn.view(-1, self.num_heads, N, N)
             attn = self.softmax(attn)
-        else:
+        else:                                                                                           # for W-MSA
             attn = self.softmax(attn)
 
         attn = self.attn_drop(attn)
 
-        x = (attn @ v).transpose(1, 2).reshape(B_, N, C)
+        x = (attn @ v).transpose(1, 2).reshape(B_, N, C)                                                # attn @ v : matmul(attn, v) 
         x = self.proj(x)
         x = self.proj_drop(x)
         return x
@@ -160,9 +160,9 @@ class WindowAttention(nn.Module):
         return flops
 
 
-class SwinTransformerBlock(nn.Module):
-    r""" Swin Transformer Block.
-
+class SwinTransformerBlock(nn.Module):                      # this class is implementation of figure 3 (b)
+    r""" Swin Transformer Block.                            # LN1 -> ( W-MSA , SW-MSA ) -> LN2 -> MLP
+                                                            # if shift_size = 0, W-MSA, elif shift_size > 0 SW-MSA 
     Args:
         dim (int): Number of input channels.
         input_resolution (tuple[int]): Input resulotion.
@@ -195,17 +195,17 @@ class SwinTransformerBlock(nn.Module):
             self.window_size = min(self.input_resolution)
         assert 0 <= self.shift_size < self.window_size, "shift_size must in 0-window_size"
 
-        self.norm1 = norm_layer(dim)
-        self.attn = WindowAttention(
+        self.norm1 = norm_layer(dim)                                                                    # LN1 module
+        self.attn = WindowAttention(                                                                    # W-MSA or SW-MSA module
             dim, window_size=to_2tuple(self.window_size), num_heads=num_heads,
             qkv_bias=qkv_bias, qk_scale=qk_scale, attn_drop=attn_drop, proj_drop=drop)
 
-        self.drop_path = DropPath(drop_path) if drop_path > 0. else nn.Identity()
-        self.norm2 = norm_layer(dim)
+        self.drop_path = DropPath(drop_path) if drop_path > 0. else nn.Identity()                       # variation of dropout
+        self.norm2 = norm_layer(dim)                                                                    # LN2 module
         mlp_hidden_dim = int(dim * mlp_ratio)
-        self.mlp = Mlp(in_features=dim, hidden_features=mlp_hidden_dim, act_layer=act_layer, drop=drop)
+        self.mlp = Mlp(in_features=dim, hidden_features=mlp_hidden_dim, act_layer=act_layer, drop=drop) # MLP modlue
 
-        if self.shift_size > 0:
+        if self.shift_size > 0:                                                                         # <?!>
             # calculate attention mask for SW-MSA
             H, W = self.input_resolution
             img_mask = torch.zeros((1, H, W, 1))  # 1 H W 1
@@ -235,13 +235,13 @@ class SwinTransformerBlock(nn.Module):
         B, L, C = x.shape
         assert L == H * W, "input feature has wrong size"
 
-        shortcut = x
-        x = self.norm1(x)
+        shortcut = x                                                                                    # for skip-connection after MSA
+        x = self.norm1(x)                                                                               # LN1 operation
         x = x.view(B, H, W, C)
 
         # cyclic shift
         if self.shift_size > 0:
-            shifted_x = torch.roll(x, shifts=(-self.shift_size, -self.shift_size), dims=(1, 2))
+            shifted_x = torch.roll(x, shifts=(-self.shift_size, -self.shift_size), dims=(1, 2))         # like figure 4, shift tensors
         else:
             shifted_x = x
 
@@ -250,7 +250,7 @@ class SwinTransformerBlock(nn.Module):
         x_windows = x_windows.view(-1, self.window_size * self.window_size, C)  # nW*B, window_size*window_size, C
 
         # W-MSA/SW-MSA
-        attn_windows = self.attn(x_windows, mask=self.attn_mask)  # nW*B, window_size*window_size, C
+        attn_windows = self.attn(x_windows, mask=self.attn_mask)  # nW*B, window_size*window_size, C    # attention operation
 
         # merge windows
         attn_windows = attn_windows.view(-1, self.window_size, self.window_size, C)
@@ -264,8 +264,8 @@ class SwinTransformerBlock(nn.Module):
         x = x.view(B, H * W, C)
 
         # FFN
-        x = shortcut + self.drop_path(x)
-        x = x + self.drop_path(self.mlp(self.norm2(x)))
+        x = shortcut + self.drop_path(x)                                                                # skip-connection
+        x = x + self.drop_path(self.mlp(self.norm2(x)))                                                 # LN2 and MLP
 
         return x
 
@@ -323,7 +323,7 @@ class PatchMerging(nn.Module):
         x = x.view(B, -1, 4 * C)  # B H/2*W/2 4*C
 
         x = self.norm(x)
-        x = self.reduction(x)
+        x = self.reduction(x)       # reduce feature's size by half -> B H/2*W/2 2*C
 
         return x
 
@@ -337,9 +337,9 @@ class PatchMerging(nn.Module):
         return flops
 
 
-class BasicLayer(nn.Module):
-    """ A basic Swin Transformer layer for one stage.
-
+class BasicLayer(nn.Module):                                                # stage in figure 3 (a)
+    """ A basic Swin Transformer layer for one stage.                       # in paper, stage 2, 3, 4's patch merging is before the Swin transformer
+                                                                            # but in code, l+1th patch merging module is implemented after the lth Swin Transformer block 
     Args:
         dim (int): Number of input channels.
         input_resolution (tuple[int]): Input resolution.
@@ -407,9 +407,9 @@ class BasicLayer(nn.Module):
         return flops
 
 
-class PatchEmbed(nn.Module):
-    r""" Image to Patch Embedding
-
+class PatchEmbed(nn.Module):                                                                        # Patch partition, and Linear Embedding in Figure 3 (a)
+    r""" Image to Patch Embedding                                                                   # image pixels -> patch
+                                                                                                    # partition , embedding with covn2d 
     Args:
         img_size (int): Image size.  Default: 224.
         patch_size (int): Patch token size. Default: 4.
@@ -529,8 +529,8 @@ class SwinTransformer(nn.Module):
                                drop=drop_rate, attn_drop=attn_drop_rate,
                                drop_path=dpr[sum(depths[:i_layer]):sum(depths[:i_layer + 1])],
                                norm_layer=norm_layer,
-                               downsample=PatchMerging if (i_layer < self.num_layers - 1) else None,
-                               use_checkpoint=use_checkpoint)
+                               downsample=PatchMerging if (i_layer < self.num_layers - 1) else None,    # last stage has no Patch_Merging
+                               use_checkpoint=use_checkpoint)                                           # (in code, l+1th patch merging is implemented after lth swin transformer block)
             self.layers.append(layer)
 
         self.norm = norm_layer(self.num_features)
@@ -557,12 +557,12 @@ class SwinTransformer(nn.Module):
         return {'relative_position_bias_table'}
 
     def forward_features(self, x):
-        x = self.patch_embed(x)
-        if self.ape:
+        x = self.patch_embed(x)                         # Patch Partition & Linear Embedding for stage1
+        if self.ape:                                    # absolute positional embedding, (it drops performance)
             x = x + self.absolute_pos_embed
-        x = self.pos_drop(x)
+        x = self.pos_drop(x)                            # dropout
 
-        for layer in self.layers:
+        for layer in self.layers:                       # repeat 4 times (Swin-Transformer has 4 stages)
             x = layer(x)
 
         x = self.norm(x)  # B L C
@@ -571,8 +571,8 @@ class SwinTransformer(nn.Module):
         return x
 
     def forward(self, x):
-        x = self.forward_features(x)
-        x = self.head(x)
+        x = self.forward_features(x)                    # feed-forward Swin Transformer
+        x = self.head(x)                                # it's for image classification task
         return x
 
     def flops(self):
