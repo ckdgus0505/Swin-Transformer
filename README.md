@@ -1,4 +1,4 @@
-# Swin Transformer
+# Swin Transformer Paper review
 
 ## Team members
 * jongmin Woo - Paper review
@@ -7,11 +7,17 @@
 ---
 Colab Code Description Link : https://colab.research.google.com/drive/1tPqmb_wSRnxjJgVSYNlZuSpezykPjJkD?usp=sharing
 
+---
 ImageClassification Example : https://colab.research.google.com/drive/1xkIJ17FCDPH31lBFFjh7xm745hS-qxbp?usp=sharing
-
+> have to download [imagenet dataset](https://www.image-net.org/) and categorize val directory with [this](https://raw.githubusercontent.com/soumith/imagenetloader.torch/master/valprep.sh) script
+---
 Object Detection Example : https://colab.research.google.com/drive/1JIv8aHpD8eaPqDiPN-Y5CUUhdpQx6vQ5?usp=sharing
 
 ---
+Semantic-Segmentation Example : https://colab.research.google.com/drive/1ad5Y7xKwW7bFO0OhQHpQXmM1gAhaYLlS?usp=sharing
+> with colab GPU Runtime, CUDA OOM error occured
+---
+# Swin Transformer Paper
 
 [![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/end-to-end-semi-supervised-object-detection/object-detection-on-coco)](https://paperswithcode.com/sota/object-detection-on-coco?p=end-to-end-semi-supervised-object-detection)
 [![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/end-to-end-semi-supervised-object-detection/instance-segmentation-on-coco)](https://paperswithcode.com/sota/instance-segmentation-on-coco?p=end-to-end-semi-supervised-object-detection)
