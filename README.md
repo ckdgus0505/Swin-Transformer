@@ -13,7 +13,7 @@ Colab Code Description Link : https://colab.research.google.com/drive/1tPqmb_wSR
 * ImageClassification Example : https://colab.research.google.com/drive/1xkIJ17FCDPH31lBFFjh7xm745hS-qxbp?usp=sharing
   > have to download [imagenet dataset](https://www.image-net.org/) and categorize val directory with [this](https://raw.githubusercontent.com/soumith/imagenetloader.torch/master/valprep.sh) script
 
-* Object Detection Example : https://colab.research.google.com/drive/1JIv8aHpD8eaPqDiPN-Y5CUUhdpQx6vQ5?usp=sharing
+* Object Detection Example : https://colab.research.google.com/drive/1UWOWiey_rdQQV4KX3Hyl9uiMzmhgu5GD?usp=sharing
 
 * Semantic-Segmentation Example : https://colab.research.google.com/drive/1ad5Y7xKwW7bFO0OhQHpQXmM1gAhaYLlS?usp=sharing
   > with colab GPU Runtime, CUDA OOM error occured
