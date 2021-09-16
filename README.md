@@ -5,7 +5,7 @@
 * Bongwon Jang - Code review
 * Changhyeon Jeong - Write Colab expriment
 ---
-Paper review pdf : [click here](figures\Swin-Transformer-Paper-review.pdf)
+Paper review pdf : [click here](https://github.com/ckdgus0505/Swin-Transformer/blob/main/figures/Swin-Transformer-Paper-review.pdf)
 
 Colab Code Description Link : https://colab.research.google.com/drive/1tPqmb_wSRnxjJgVSYNlZuSpezykPjJkD?usp=sharing
 
